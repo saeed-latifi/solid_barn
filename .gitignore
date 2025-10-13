@@ -1,6 +1,5 @@
-node_modules
+.DS_Store
 dist
-gitignore
-
-# tsup
-tsup.config.bundled_*.{m,c,}s
+node_modules
+pnpm-lock.yaml
+.pnpm-debug.log

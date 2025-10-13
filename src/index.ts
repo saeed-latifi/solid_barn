@@ -1,20 +1,23 @@
 import { batch, createEffect, createMemo, createSignal } from "solid-js";
 import { createStore, SetStoreFunction, Store } from "solid-js/store";
-import { keyGenerator } from "./keyGenerator";
+import { keyGenerator } from "./utils";
+
+export const utils = { keyGenerator };
+
 // export const keyGenerator
 
-interface IFetchState {
+interface IDataState {
 	isLoading: boolean;
 	isValidating: boolean;
 	initialized: boolean;
 	error?: any;
 }
 
-interface IGStoreSection {
+interface IBarnSection {
 	base: {
 		[filterKey: string]: {
 			data: [get: Store<any>, set: SetStoreFunction<any>];
-			fetchState: [get: Store<IFetchState>, set: SetStoreFunction<IFetchState>];
+			dataState: [get: Store<IDataState>, set: SetStoreFunction<IDataState>];
 		};
 	};
 	freeze: boolean;
@@ -22,11 +25,11 @@ interface IGStoreSection {
 
 // TODO implement Freeze actions on global, domain and record state
 // TODO add isValidating
-interface GStore {
+interface IBarn {
 	[domain: string]: {
-		list?: IGStoreSection;
-		record?: IGStoreSection;
-		base?: IGStoreSection;
+		list?: IBarnSection;
+		record?: IBarnSection;
+		base?: IBarnSection;
 		freeze: boolean;
 	};
 }
@@ -40,37 +43,37 @@ interface IStoreArgs<T, F> {
 	devLog: boolean;
 }
 
-const gStore: GStore = {};
+const Barn: IBarn = {};
 const globalFetchMap = new Map<string, Promise<any>>();
 
-export function useGStore<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, storeType = "base", devLog }: IStoreArgs<T, F>) {
+export function useBarn<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, storeType = "base", devLog }: IStoreArgs<T, F>) {
 	const purgedFilters = createMemo(() => keyGenerator(filters?.()) as Partial<F>);
 	const key = createMemo(() => JSON.stringify(purgedFilters()));
 
 	const storeSection = createMemo(() => {
 		const currentKey = key();
 
-		if (!gStore[domain]) gStore[domain] = { freeze: false };
-		if (!gStore[domain][storeType]) gStore[domain][storeType] = { base: {}, freeze: false };
-		if (!gStore[domain][storeType].base[currentKey]) {
-			gStore[domain][storeType].base[currentKey] = {
+		if (!Barn[domain]) Barn[domain] = { freeze: false };
+		if (!Barn[domain][storeType]) Barn[domain][storeType] = { base: {}, freeze: false };
+
+		let store = Barn[domain][storeType]?.base[currentKey];
+		if (!store) {
+			store = {
 				data: createStore<T>({} as T),
-				fetchState: createStore<IFetchState>({ initialized: false, isLoading: false, isValidating: false }),
+				dataState: createStore<IDataState>({ initialized: false, isLoading: false, isValidating: false }),
 			};
 		}
-
-		const store = gStore[domain][storeType].base[currentKey];
 
 		return {
 			data: store.data[0],
 			setData: store.data[1],
-			fetchState: store.fetchState[0],
-			setFetchState: store.fetchState[1],
+			dataState: store.dataState[0],
+			setDataState: store.dataState[1],
 		};
 	});
 
 	const [isReadyState, setReady] = createSignal(isReady.constructor.name === "AsyncFunction" ? false : isReady());
-	const canAct = createMemo(() => isReadyState() && storeSection().fetchState.initialized && !storeSection().fetchState.isLoading && !storeSection().fetchState.isValidating);
+	const canAct = createMemo(() => isReadyState() && storeSection().dataState.initialized && !storeSection().dataState.isLoading && !storeSection().dataState.isValidating);
 
 	createEffect(async () => {
 		try {
@@ -81,10 +84,10 @@ export function useGStore<T extends object, F extends Record<string, any> = Reco
 	});
 
 	createEffect(() => {
-		const { fetchState } = storeSection();
+		const { dataState } = storeSection();
 		const ready = isReadyState();
 
-		if (ready && !fetchState.initialized) {
+		if (ready && !dataState.initialized) {
 			executeFetch();
 		}
 	});
@@ -96,8 +99,8 @@ export function useGStore<T extends object, F extends Record<string, any> = Reco
 		if (devLog) console.log("fetch ", fetchKey);
 
 		batch(() => {
-			storeSection().setFetchState("isLoading", true);
-			storeSection().setFetchState("initialized", true);
+			storeSection().setDataState("isLoading", true);
+			storeSection().setDataState("initialized", true);
 		});
 
 		const promise = fetcher(purgedFilters());
@@ -107,15 +110,15 @@ export function useGStore<T extends object, F extends Record<string, any> = Reco
 
 			batch(() => {
 				storeSection().setData(res);
-				storeSection().setFetchState("isLoading", false);
-				storeSection().setFetchState("error", undefined);
+				storeSection().setDataState("isLoading", false);
+				storeSection().setDataState("error", undefined);
 			});
 
 			return res;
 		} catch (error) {
 			batch(() => {
-				storeSection().setFetchState("isLoading", false);
-				storeSection().setFetchState("error", error);
+				storeSection().setDataState("isLoading", false);
+				storeSection().setDataState("error", error);
 			});
 		} finally {
 			if (globalFetchMap.get(fetchKey) === promise) {
@@ -132,9 +135,9 @@ export function useGStore<T extends object, F extends Record<string, any> = Reco
 	return {
 		key,
 		data: () => storeSection().data,
-		fetchState: () => storeSection().fetchState,
+		dataState: () => storeSection().dataState,
 		isReady: isReadyState,
-		onValidate: (v: boolean) => storeSection().setFetchState("isValidating", v),
+		onValidate: (v: boolean) => storeSection().setDataState("isValidating", v),
 		mutate,
 	};
 }
