@@ -1,6 +1,6 @@
 {
 	"name": "solid-barn",
-	"version": "0.1.0",
+	"version": "0.1.1",
 	"description": "A State and data manager for solid js",
 	"info": "Heavily inspired by SWR, but for solid js. by domain names, filters and virtual stateType (List,Record,Base)",
 	"author": "Saeed Latifi",
@@ -14,9 +14,7 @@
 		}
 	},
 	"scripts": {
-		"build": "tsc",
-		"createDocs": "typedoc src/index.ts",
-		"test": "vitest"
+		"build": "tsc"
 	},
 	"homepage": "https://github.com/saeed-latifi/solid_barn",
 	"contributors": [
@@ -27,17 +25,11 @@
 	],
 	"license": "MIT",
 	"peerDependencies": {
-		"solid-js": "^1.6.0"
+		"solid-js": "^1.7.3"
 	},
 	"devDependencies": {
-		"@solidjs/testing-library": "^0.7.0",
-		"@testing-library/jest-dom": "^5.16.5",
-		"jsdom": "^21.1.1",
 		"solid-js": "^1.7.3",
-		"typedoc": "^0.23.7",
-		"typescript": "^4.7.4",
-		"vite": "^7.1.9",
-		"vite-plugin-solid": "^2.7.0",
-		"vitest": "^0.30.1"
+		"typescript": "^5.9.3",
+		"vite": "^7.1.9"
 	}
 }

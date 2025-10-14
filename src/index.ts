@@ -4,49 +4,38 @@ import { keyGenerator } from "./utils";
 
 export const utils = { keyGenerator };
 
-// export const keyGenerator
-
-interface IDataState {
+interface IBarnDataState {
 	isLoading: boolean;
 	isValidating: boolean;
 	initialized: boolean;
 	error?: any;
 }
 
-interface IBarnSection {
-	base: {
-		[filterKey: string]: {
-			data: [get: Store<any>, set: SetStoreFunction<any>];
-			dataState: [get: Store<IDataState>, set: SetStoreFunction<IDataState>];
-		};
-	};
-	freeze: boolean;
+interface IBarnSection<T> {
+	data: [get: Store<T>, set: SetStoreFunction<T>];
+	dataState: [get: Store<IBarnDataState>, set: SetStoreFunction<IBarnDataState>];
 }
 
 // TODO implement Freeze actions on global, domain and record state
-// TODO add isValidating
-interface IBarn {
+interface IBarnRecord<T> {
 	[domain: string]: {
-		list?: IBarnSection;
-		record?: IBarnSection;
-		base?: IBarnSection;
+		records?: { [filterKey: string]: IBarnSection<T> };
 		freeze: boolean;
 	};
 }
 
-interface IStoreArgs<T, F> {
+interface IBarnArgs<T, F> {
 	domain: string;
 	fetcher: (filters: Partial<F>) => Promise<T>;
 	filters?: () => F;
 	isReady?: () => boolean | Promise<boolean>;
-	storeType?: "list" | "record" | "base";
-	devLog: boolean;
+	devLog?: boolean;
 }
 
-const Barn: IBarn = {};
-const globalFetchMap = new Map<string, Promise<any>>();
+const Barn: IBarnRecord<any> = {};
+const barnRecordsFetchMap = new Map<string, Promise<any>>();
 
-export function useBarn<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, storeType = "base", devLog }: IStoreArgs<T, F>) {
+export function useBarnRecord<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, devLog }: IBarnArgs<T, F>) {
 	const purgedFilters = createMemo(() => keyGenerator(filters?.()) as Partial<F>);
 	const key = createMemo(() => JSON.stringify(purgedFilters()));
 
@@ -54,15 +43,15 @@ export function useBarn<T extends object, F extends Record<string, any> = Record
 		const currentKey = key();
 
 		if (!Barn[domain]) Barn[domain] = { freeze: false };
-		if (!Barn[domain][storeType]) Barn[domain][storeType] = { base: {}, freeze: false };
-
-		let store = Barn[domain][storeType]?.base[currentKey];
-		if (!store) {
-			store = {
+		if (!Barn[domain].records) Barn[domain].records = {};
+		if (!Barn[domain].records[currentKey]) {
+			Barn[domain].records[currentKey] = {
 				data: createStore<T>({} as T),
-				dataState: createStore<IDataState>({ initialized: false, isLoading: false, isValidating: false }),
+				dataState: createStore<IBarnDataState>({ initialized: false, isLoading: false, isValidating: false }),
 			};
 		}
+
+		const store: IBarnSection<T> = Barn[domain].records[currentKey];
 
 		return {
 			data: store.data[0],
@@ -93,8 +82,8 @@ export function useBarn<T extends object, F extends Record<string, any> = Record
 	});
 
 	async function executeFetch(): Promise<T | undefined> {
-		const fetchKey = `:${domain}:${storeType}:${key()}:`;
-		if (globalFetchMap.has(fetchKey)) return globalFetchMap.get(fetchKey)!;
+		const fetchKey = `:${domain}:${key()}:`;
+		if (barnRecordsFetchMap.has(fetchKey)) return barnRecordsFetchMap.get(fetchKey)!;
 
 		if (devLog) console.log("fetch ", fetchKey);
 
@@ -105,7 +94,7 @@ export function useBarn<T extends object, F extends Record<string, any> = Record
 
 		const promise = fetcher(purgedFilters());
 		try {
-			globalFetchMap.set(fetchKey, promise);
+			barnRecordsFetchMap.set(fetchKey, promise);
 			const res: T = await promise;
 
 			batch(() => {
@@ -121,8 +110,8 @@ export function useBarn<T extends object, F extends Record<string, any> = Record
 				storeSection().setDataState("error", error);
 			});
 		} finally {
-			if (globalFetchMap.get(fetchKey) === promise) {
-				globalFetchMap.delete(fetchKey);
+			if (barnRecordsFetchMap.get(fetchKey) === promise) {
+				barnRecordsFetchMap.delete(fetchKey);
 			}
 		}
 	}
@@ -132,12 +121,24 @@ export function useBarn<T extends object, F extends Record<string, any> = Record
 		return (storeSection().setData as any)(...args);
 	}) as SetStoreFunction<T>;
 
+	async function asyncMutate(updater: (mutator: SetStoreFunction<T>, data: T, filters: Partial<F>) => Promise<T | void> | T | void) {
+		if (!updater || !canAct()) return;
+
+		storeSection().setDataState("isValidating", true);
+		await updater(storeSection().setData, storeSection().data, purgedFilters());
+		storeSection().setDataState("isValidating", false);
+	}
+
 	return {
 		key,
+		canAct,
+		storeSection,
+		filters: purgedFilters,
 		data: () => storeSection().data,
 		dataState: () => storeSection().dataState,
 		isReady: isReadyState,
-		onValidate: (v: boolean) => storeSection().setDataState("isValidating", v),
+		refetch: executeFetch,
 		mutate,
+		asyncMutate,
 	};
 }
