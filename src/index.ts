@@ -4,27 +4,28 @@ import { keyGenerator } from "./utils";
 
 export const utils = { keyGenerator };
 
-interface IBarnDataState {
+export interface IBarnDataState {
 	isLoading: boolean;
 	isValidating: boolean;
 	initialized: boolean;
 	error?: any;
 }
 
-interface IBarnSection<T> {
+export interface IBarnSection<T> {
 	data: [get: Store<T>, set: SetStoreFunction<T>];
 	dataState: [get: Store<IBarnDataState>, set: SetStoreFunction<IBarnDataState>];
 }
 
 // TODO implement Freeze actions on global, domain and record state
-interface IBarnRecord<T> {
+export interface IBarnRecord<T> {
 	[domain: string]: {
 		records?: { [filterKey: string]: IBarnSection<T> };
 		freeze: boolean;
 	};
 }
 
-interface IBarnArgs<T, F> {
+// TODO options for refetch on connection! page-load! stale!
+export interface IBarnArgs<T, F> {
 	domain: string;
 	fetcher: (filters: Partial<F>) => Promise<T>;
 	filters?: () => F;
@@ -35,7 +36,7 @@ interface IBarnArgs<T, F> {
 const Barn: IBarnRecord<any> = {};
 const barnRecordsFetchMap = new Map<string, Promise<any>>();
 
-export function useBarnRecord<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, devLog }: IBarnArgs<T, F>) {
+export function useBarn<T extends object, F extends Record<string, any> = Record<string, any>>({ domain, fetcher, filters, isReady = () => true, devLog }: IBarnArgs<T, F>) {
 	const purgedFilters = createMemo(() => keyGenerator(filters?.()) as Partial<F>);
 	const key = createMemo(() => JSON.stringify(purgedFilters()));
 
@@ -54,6 +55,8 @@ export function useBarnRecord<T extends object, F extends Record<string, any> = 
 		const store: IBarnSection<T> = Barn[domain].records[currentKey];
 
 		return {
+			// TODO reactive domain and freeze
+			domain: Barn[domain],
 			data: store.data[0],
 			setData: store.data[1],
 			dataState: store.dataState[0],
