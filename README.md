@@ -1,12 +1,6 @@
-![NPM Version](https://img.shields.io/npm/v/solid-cached-resource) ![npm bundle size](https://img.shields.io/bundlephobia/min/solid-cached-resource) ![NPM License](https://img.shields.io/npm/l/solid-cached-resource)
+![NPM Version](https://img.shields.io/npm/v/solid-barn) ![npm bundle size](https://img.shields.io/bundlephobia/min/solid-barn) ![NPM License](https://img.shields.io/npm/l/solid-barn)
 
-# Solid Cached Resource
-
-Inspired by TanStack Query, with minimal API and footprint, built only for SolidJS.
-The (almost) same API as [createResource](https://www.solidjs.com/docs/latest/api#createresource).
-Includes `createMutation` for easier mutation state handling.
-
-[API references](https://yonathan06.github.io/solid-cached-resource/)
+# Solid Barn
 
 Features:
 

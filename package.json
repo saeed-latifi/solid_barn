@@ -1,6 +1,6 @@
 {
 	"name": "solid-barn",
-	"version": "0.1.4",
+	"version": "0.1.6",
 	"description": "A State and data manager for solid js",
 	"info": "Heavily inspired by SWR, but for solid js. depend and reactive by domain-name and filters",
 	"author": "Saeed Latifi",
